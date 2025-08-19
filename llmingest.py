@@ -39,12 +39,11 @@ def _get_language_identifier(file_path: Path) -> str:
   return LANGUAGE_MAP.get(file_path.suffix, "text")
 
 
-def _format_file_content(file_path: Path, root_path: Path) -> Optional[str]:
+def _format_file_content(file_path: Path, root_path: Path, verbose: bool = False) -> Optional[str]:
   """Reads a file and formats it with a header and fenced code block."""
   try:
     content = file_path.read_text(encoding="utf-8")
     lang = _get_language_identifier(file_path)
-    # Use the same relative path logic as the tree view for consistency
     relative_path = file_path.relative_to(root_path)
     return (
         f"{SEPARATOR}\n"
@@ -55,7 +54,8 @@ def _format_file_content(file_path: Path, root_path: Path) -> Optional[str]:
         f"```\n"
     )
   except (UnicodeDecodeError, OSError):
-    print(f"Skipping binary or unreadable file: {file_path}")
+    if verbose:
+      print(f"Skipping binary or unreadable file: {file_path}")
     return None
 
 
@@ -117,14 +117,13 @@ def _build_ascii_tree(root_path: Path, spec: Optional[pathspec.PathSpec], displa
   return "\n".join(lines)
 
 
-def _process_directory(root_path: Path, display_root: str) -> Tuple[str, str]:
+def _process_directory(root_path: Path, display_root: str, verbose: bool = False) -> Tuple[str, str]:
   """Walks a directory, generates a file tree, and formats file contents."""
   spec = _load_gitignore_patterns(root_path)
   tree_str = _build_ascii_tree(root_path, spec, display_root)
 
   content_blocks: List[str] = []
   for dirpath, _, filenames in os.walk(root_path):
-    # Explicitly skip the .git directory to be safe
     if ".git" in dirpath.split(os.sep):
       continue
 
@@ -134,7 +133,7 @@ def _process_directory(root_path: Path, display_root: str) -> Tuple[str, str]:
       rel_path = file_path.relative_to(root_path)
       if spec and spec.match_file(str(rel_path)):
         continue
-      formatted_content = _format_file_content(file_path, root_path)
+      formatted_content = _format_file_content(file_path, root_path, verbose)
       if formatted_content:
         content_blocks.append(formatted_content)
 
@@ -166,7 +165,7 @@ def _get_contextual_display_path(path: Path) -> str:
     return path.name
 
 
-def ingest(source: str) -> str:
+def ingest(source: str, verbose: bool = False) -> str:
   """Ingests a Git repository from a URL or local path into a single Markdown string."""
   is_url = source.startswith("http") or source.startswith("git@")
 
@@ -178,7 +177,7 @@ def ingest(source: str) -> str:
       repo_path = Path(temp_dir)
       # For URLs, the repo name is the last part of the URL, without .git
       repo_name = Path(source).stem
-      tree, content = _process_directory(repo_path, repo_name)
+      tree, content = _process_directory(repo_path, repo_name, verbose)
     finally:
       shutil.rmtree(temp_dir)
   else:
@@ -188,7 +187,7 @@ def ingest(source: str) -> str:
           f"Local path not found or not a directory: {source}")
     print(f"Processing local directory: {repo_path}...")
     display_path = _get_contextual_display_path(repo_path)
-    tree, content = _process_directory(repo_path, display_path)
+    tree, content = _process_directory(repo_path, display_path, verbose)
 
   return (
       f"Directory structure:\n{tree}\n\n"
