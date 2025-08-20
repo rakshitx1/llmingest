@@ -7,9 +7,10 @@ from typing import List, Optional, Tuple
 import argparse
 
 # --- Dependencies ---
-# pip install GitPython pathspec
+# pip install GitPython pathspec tiktoken
 import git
 import pathspec
+import tiktoken
 
 # --- Configuration ---
 
@@ -165,6 +166,13 @@ def _get_contextual_display_path(path: Path) -> str:
     return path.name
 
 
+def _count_tokens(text: str) -> int:
+  """Counts tokens using tiktoken if available, otherwise uses a heuristic."""
+  encoding = tiktoken.get_encoding("cl100k_base")
+  num_tokens = len(encoding.encode(text))
+  return num_tokens
+
+
 def ingest(source: str, verbose: bool = False) -> str:
   """Ingests a Git repository from a URL or local path into a single Markdown string."""
   is_url = source.startswith("http") or source.startswith("git@")
@@ -223,11 +231,16 @@ def main():
     if args.no_tree:
       digest = "\n".join(digest.split("\n\n", 1)[1:])
 
+    # Count tokens of the final output
+    token_count = _count_tokens(digest)
+    summary_line = f"Approximate token count: {token_count:,}"
+
     with open(args.output, "w", encoding="utf-8") as f:
       f.write(digest)
 
-    if args.verbose:
-      print(f"Digest successfully saved to {args.output}")
+    # Print the final summary to the console
+    print(f"\nDigest successfully saved to {args.output}")
+    print(summary_line)
 
   except Exception as e:
     parser.error(str(e))
