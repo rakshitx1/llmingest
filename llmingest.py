@@ -231,15 +231,15 @@ def main():
     if args.no_tree:
       digest = "\n".join(digest.split("\n\n", 1)[1:])
 
+    with open(args.output, "w", encoding="utf-8") as f:
+      f.write(digest)
+    print(f"\nDigest successfully saved to {args.output}")
+
     # Count tokens of the final output
     token_count = _count_tokens(digest)
     summary_line = f"Approximate token count: {token_count:,}"
 
-    with open(args.output, "w", encoding="utf-8") as f:
-      f.write(digest)
-
     # Print the final summary to the console
-    print(f"\nDigest successfully saved to {args.output}")
     print(summary_line)
 
   except Exception as e:
